@@ -1,6 +1,7 @@
 module Globalize
   module ActiveRecord
     class Translation < ::ActiveRecord::Base
+      class_attribute :cache_store, :cache_expires_in
 
       validates :locale, :presence => true
 
@@ -20,8 +21,18 @@ module Globalize
         alias with_locale with_locales
 
         def translated_locales
-          select('DISTINCT locale').order(:locale).map(&:locale)
+          with_cache(:translated_locales) do
+            select('DISTINCT locale').order(:locale).map(&:locale)
+          end
         end
+
+        protected
+          def with_cache(key, &block)
+            return yield unless cache_store.present?
+            cache_store.fetch([name.underscore, key], expires_in: cache_expires_in) do
+              yield
+            end
+          end
       end
 
       def locale
@@ -43,3 +54,5 @@ end
 #
 # See http://www.ruby-forum.com/topic/159894 for details.
 Globalize::ActiveRecord::Translation.abstract_class = true
+Globalize::ActiveRecord::Translation.cache_store = Rails.cache if defined?(Rails)
+Globalize::ActiveRecord::Translation.cache_expires_in = 1.hours
