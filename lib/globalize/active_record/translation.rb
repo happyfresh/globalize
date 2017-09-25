@@ -21,8 +21,14 @@ module Globalize
         alias with_locale with_locales
 
         def translated_locales
-          with_cache(:translated_locales) do
-            select('DISTINCT locale').order(:locale).map(&:locale)
+          # comma seperated locales env variable
+          supported_locales = ENV['SUPPORTED_LOCALES']
+          if supported_locales && !supported_locales.empty?
+            supported_locales.split(',')
+          else
+            with_cache(:translated_locales) do
+              select('DISTINCT locale').order(:locale).map(&:locale)
+            end
           end
         end
 
