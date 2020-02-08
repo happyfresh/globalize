@@ -30,12 +30,12 @@ module Globalize
         if attribute_changed?(name_str)
           # If there's already a change, delete it if this undoes the change.
           old = changed_attributes[name_str]
-          changed_attributes.delete(name_str) if value == old
+          @changed_attributes.delete(name_str) if value == old
         else
           # If there's not a change yet, record it.
           old = globalize.fetch(options[:locale], name)
           old = old.dup if old.duplicable?
-          changed_attributes[name_str] = old if value != old
+          @changed_attributes[name_str] = old if value != old
         end
 
         globalize.write(options[:locale], name, value)
@@ -45,9 +45,7 @@ module Globalize
         options = {:translated => true, :locale => nil}.merge(options)
         return super(name) unless options[:translated]
 
-        if name == :locale
-          self.try(:locale).presence || self.translation.locale
-        elsif self.class.translated?(name)
+        if translated?(name)
           if (value = globalize.fetch(options[:locale] || Globalize.locale, name))
             value
           else
@@ -66,7 +64,7 @@ module Globalize
 
       def translated_attributes
         translated_attribute_names.inject({}) do |attributes, name|
-          attributes.merge(name.to_s => self.send(name))
+          attributes.merge(name.to_s => send(name))
         end
       end
 
@@ -93,7 +91,7 @@ module Globalize
 
       def reload(options = nil)
         translation_caches.clear
-        translated_attribute_names.each { |name| @attributes.delete(name.to_s) }
+        translated_attribute_names.each { |name| @attributes.reset(name.to_s) }
         globalize.reset
         super(options)
       end
@@ -150,7 +148,7 @@ module Globalize
       end
 
       def save(*)
-        Globalize.with_locale(read_attribute(:locale) || I18n.default_locale) do
+        Globalize.with_locale(translation.locale || I18n.default_locale) do
           super
         end
       end
@@ -159,6 +157,10 @@ module Globalize
         return super if translated_attribute_names.exclude?(name)
 
         globalize.send(:column_for_attribute, name)
+      end
+
+      def cache_key
+        [super, translation.cache_key].join("/")
       end
 
     protected
@@ -185,10 +187,7 @@ module Globalize
       def with_given_locale(attributes, &block)
         attributes.symbolize_keys! if attributes.respond_to?(:symbolize_keys!)
 
-        locale = respond_to?(:locale=) ? attributes.try(:[], :locale) :
-                                         attributes.try(:delete, :locale)
-
-        if locale
+        if locale = attributes.try(:delete, :locale)
           Globalize.with_locale(locale, &block)
         else
           yield

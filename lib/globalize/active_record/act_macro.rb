@@ -51,11 +51,10 @@ module Globalize
       end
 
       def enable_serializable_attribute(attr_name)
-        serializer = self.serialized_attributes[attr_name.to_s]
+        serializer = self.globalize_serialized_attributes[attr_name]
         if serializer.present?
           if defined?(::ActiveRecord::Coders::YAMLColumn) &&
-             serializer.is_a?(::ActiveRecord::Coders::YAMLColumn)
-
+            serializer.is_a?(::ActiveRecord::Coders::YAMLColumn)
             serializer = serializer.object_class
           end
 

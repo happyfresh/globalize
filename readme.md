@@ -11,12 +11,12 @@ to add model translations to ActiveRecord models.
 
 ## Requirements
 
-* ActiveRecord >= 4.0.0 (see below for installation with ActiveRecord 3.x)
+* ActiveRecord >= 4.2.0 (see below for installation with ActiveRecord 3.x)
 * I18n
 
 ## Installation
 
-To install the ActiveRecord 4.x compatible version of Globalize with its default setup, just use:
+To install the ActiveRecord 4.2.x compatible version of Globalize with its default setup, just use:
 
 ```ruby
 gem install globalize
@@ -25,7 +25,13 @@ gem install globalize
 When using bundler put this in your Gemfile:
 
 ```ruby
-gem 'globalize', '~> 4.0.2'
+gem 'globalize', '~> 5.0.0'
+```
+
+To use the version of globalize for ActiveRecord 4.0 or 4.1, specify:
+
+```ruby
+gem 'globalize', '~> 4.0.3'
 ```
 
 To use the version of globalize for ActiveRecord 3.1 or 3.2, specify:
@@ -56,6 +62,12 @@ post.title # => Globalize rocks!
 
 I18n.locale = :he
 post.title # => גלובאלייז2 שולט!
+```
+
+You can also set translations with mass-assignment by specifying the locale:
+
+```ruby
+post.attributes = { title: 'גלובאלייז2 שולט!', locale: :he }
 ```
 
 In order to make this work, you'll need to add the appropriate translation tables.
@@ -158,6 +170,11 @@ NOTE: Remember to add the new field to the model:
 ```ruby
 translates :title, :author
 ```
+## Gotchas
+
+Because globalize uses the `:locale` key to specify the locale during
+mass-assignment, you should avoid having a `locale` attribute on the parent
+model.
 
 ## Versioning with Globalize
 

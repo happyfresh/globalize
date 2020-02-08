@@ -22,6 +22,14 @@ module Globalize
         end
       end
 
+      def order(opts, *rest)
+        if respond_to?(:translated_attribute_names) && parsed = parse_translated_order(opts)
+          super(parsed)
+        else
+          super
+        end
+      end
+
       def exists?(conditions = :none)
         if parsed = parse_translated_conditions(conditions)
           with_translations_in_fallbacks.exists?(parsed)
@@ -43,6 +51,7 @@ module Globalize
       end
 
       def where_values_hash(*args)
+        return super unless respond_to?(:translations_table_name)
         equalities = respond_to?(:with_default_scope) ? with_default_scope.where_values : where_values
         equalities = equalities.grep(Arel::Nodes::Equality).find_all { |node|
           node.left.relation.name == translations_table_name
@@ -52,7 +61,7 @@ module Globalize
 
         super.merge(Hash[equalities.map { |where|
           name = where.left.name
-          [name, binds.fetch(name.to_s) { where.right }]
+          [name, binds.fetch(name.to_s) { right = where.right; right.is_a?(Arel::Nodes::Casted) ? right.val : right }]
         }])
       end
 
@@ -62,6 +71,27 @@ module Globalize
         else
           relation.with_translations_in_fallbacks
         end
+      end
+
+      private
+
+      def parse_translated_order(opts)
+        case opts
+        when Hash
+          ordering = opts.map do |column, direction|
+            klass = translated_column?(column) ? translation_class : self
+            klass.arel_table[column].send(direction)
+          end
+          order(ordering).order_values
+        when Symbol
+          translated_column_name(opts) if translated_attribute_names.include?(opts)
+        else # failsafe returns nothing
+          nil
+        end
+      end
+
+      def translated_column?(column)
+        translated_attribute_names.include?(column)
       end
     end
   end

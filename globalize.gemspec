@@ -15,21 +15,10 @@ Gem::Specification.new do |s|
   s.require_path = 'lib'
   s.rubyforge_project = '[none]'
 
-  if ENV['RAILS_4_0']
-    s.add_dependency 'activerecord', '~> 4.0.0'
-    s.add_dependency 'activemodel', '~> 4.0.0'
-  elsif ENV['RAILS_4_1']
-    s.add_dependency 'activerecord', '~> 4.1.0'
-    s.add_dependency 'activemodel', '~> 4.1.0'
-  elsif ENV['RAILS_4_2']
-    s.add_dependency 'activerecord', '>= 4.2.0.beta2', '< 4.3'
-    s.add_dependency 'activemodel', '>= 4.2.0.beta2', '< 4.3'
-  else
-    s.add_dependency 'activerecord', '>= 4.0.0', '< 5'
-    s.add_dependency 'activemodel', '>= 4.0.0', '< 5'
-  end
+  s.add_dependency 'activerecord', '>= 4.2.0', '< 4.3'
+  s.add_dependency 'activemodel', '>= 4.2.0', '< 4.3'
 
-  s.add_development_dependency 'database_cleaner', '~> 1.3.0'
+  s.add_development_dependency 'database_cleaner', '~> 1.4.0'
   s.add_development_dependency 'minitest'
   s.add_development_dependency 'minitest-reporters'
 
@@ -37,18 +26,4 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'rdoc'
 
   s.add_development_dependency 'rake'
-  s.post_install_message = <<-END
-
-Globalize has extracted versioning support to a separate gem named
-globalize-versioning. If you are using versioning (with paper_trail
-or any other versioning gem), please add the line
-"gem 'globalize-versioning'" to your Gemfile and go to the github
-page at globalize/globalize-versioning if you encounter any problems.
-
-Note that the globalize-versioning gem does not delegate versions to
-the translation table, so you will have to update your syntax to
-the form: `post.translation.versions`. See the globalize-versioning
-readme for details.
-
-  END
 end

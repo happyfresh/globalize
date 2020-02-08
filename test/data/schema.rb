@@ -1,6 +1,24 @@
 ActiveRecord::Migration.verbose = false
 
 ActiveRecord::Schema.define do
+  create_table :authors, :force => true do |t|
+    t.string     :name
+  end
+
+  create_table :articles, :force => true do |t|
+    t.references :author
+  end
+
+  create_table :article_translations, :force => true do |t|
+    t.references :article
+    t.string     :title
+  end
+
+  create_table :comments_without_translations, :force => true do |t|
+    t.references :article
+    t.string     :content
+  end
+
   create_table :translations, :force => true do |t|
     t.string   :blah
   end
@@ -21,6 +39,17 @@ ActiveRecord::Schema.define do
     t.text       :content
     t.boolean    :published
     t.datetime   :published_at
+  end
+
+  create_table :products, :force => true do |t|
+    t.timestamps :null => false
+  end
+
+  create_table :product_translations, :force => true do |t|
+    t.string     :locale
+    t.references :product
+    t.string     :name
+    t.timestamps :null => false
   end
 
   create_table :parents, :force => true do |t|
@@ -47,6 +76,10 @@ ActiveRecord::Schema.define do
   create_table :migrateds, :force => true do |t|
     t.string :name
     t.string :untranslated
+  end
+
+  create_table :migrated_with_mega_ultra_super_long_model_name_with_more_then_sixty_characters, :force => true do |t|
+    t.string :name
   end
 
   create_table :two_attributes_migrateds, :force => true do |t|
@@ -114,19 +147,6 @@ ActiveRecord::Schema.define do
     t.string     :name
   end
 
-  create_table :words, :force => true do |t|
-    t.string :term
-    t.text   :definition
-    t.string :locale
-  end
-
-  create_table :word_translations, :force => true do |t|
-    t.references :word
-    t.string     :term
-    t.text       :definition
-    t.string     :locale,    :default => 'en'
-  end
-
   create_table 'UPPERCASE_TABLE_NAME', :force => true do |t|
     t.string :name
   end
@@ -141,7 +161,7 @@ ActiveRecord::Schema.define do
     t.string :title
   end
 
-  create_table :news_item_translations, :force => true do |t|
+  create_table :news_translations, :force => true do |t|
     t.integer  'news_id'
     t.string     :locale
     t.string     :title
@@ -220,5 +240,9 @@ ActiveRecord::Schema.define do
   create_table "attachments" do |t|
     t.references :post
     t.string :file_type
+  end
+
+  create_table "foo_bar_bazs" do |t|
+    t.string :bumm
   end
 end
