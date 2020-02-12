@@ -1,10 +1,11 @@
+require 'request_store'
 require 'active_record'
 require 'patches/active_record/xml_attribute_serializer'
 require 'patches/active_record/query_method'
+require 'patches/active_record/relation'
 require 'patches/active_record/serialization'
 require 'patches/active_record/uniqueness_validator'
 require 'patches/active_record/persistence'
-
 
 module Globalize
   autoload :ActiveRecord, 'globalize/active_record'
@@ -52,18 +53,31 @@ module Globalize
       i18n_fallbacks? ? I18n.fallbacks[for_locale] : [for_locale.to_sym]
     end
 
+    # Thread-safe global storage
+    def storage
+      RequestStore.store
+    end
+
+    def rails_5?
+      ::ActiveRecord.version >= Gem::Version.new('5.1.0')
+    end
+
+    def rails_52?
+      ::ActiveRecord.version >= Gem::Version.new('5.2.0')
+    end
+
   protected
 
     def read_locale
-      @globalize_locale
+      storage[:globalize_locale]
     end
 
     def set_locale(locale)
-      @globalize_locale = locale.try(:to_sym)
+      storage[:globalize_locale] = locale.try(:to_sym)
     end
 
     def read_fallbacks
-      @fallbacks || HashWithIndifferentAccess.new
+      storage[:globalize_fallbacks] || HashWithIndifferentAccess.new
     end
 
     def set_fallbacks(locales)
@@ -73,12 +87,12 @@ module Globalize
         fallback_hash[key] = value.presence || [key]
       end if locales.present?
 
-      @fallbacks = fallback_hash
+      storage[:globalize_fallbacks] = fallback_hash
     end
   end
 end
 
-ActiveRecord::Base.mattr_accessor :globalize_serialized_attributes, instance_writer: false
+ActiveRecord::Base.class_attribute :globalize_serialized_attributes, instance_writer: false
 ActiveRecord::Base.globalize_serialized_attributes = {}
 
 ActiveRecord::Base.extend(Globalize::ActiveRecord::ActMacro)

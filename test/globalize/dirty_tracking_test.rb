@@ -76,7 +76,7 @@ class DirtyTrackingTest < MiniTest::Spec
       post.save
 
       I18n.locale = :de
-      assert_equal nil, post.title
+      assert_nil post.title
 
       post.title = 'Titel'
       assert_equal({ 'title' => [nil, 'Titel'] }, post.changes)
@@ -98,6 +98,68 @@ class DirtyTrackingTest < MiniTest::Spec
       post.title = nil
       assert_equal({ 'title' => ['title', nil] }, post.changes)
       post.save
+    end
+
+    it 'works for assigning new value == old value of other locale' do
+      post = Post.create(:title => nil, :content => 'content')
+      assert_equal ['content'], post.changed
+
+      post.title = 'english title'
+
+      if Globalize.rails_5?
+        assert_equal ['title', 'content'], post.changed
+      else
+        assert_equal ['content', 'title'], post.changed
+      end
+
+      I18n.locale = :de
+      post.title  = nil
+
+      if Globalize.rails_5?
+        assert_equal ['title', 'content'], post.changed
+      else
+        assert_equal ['content', 'title'], post.changed
+      end
+    end
+
+    it 'works for restore changed state of other locale' do
+      post = Post.create(:title => nil, :content => 'content')
+      assert_equal ['content'], post.changed
+
+      post.title = 'english title'
+      if Globalize.rails_5?
+        assert_equal ['title', 'content'], post.changed
+      else
+        assert_equal ['content', 'title'], post.changed
+      end
+
+      I18n.locale = :de
+      post.title  = 'title de'
+
+      if Globalize.rails_5?
+        assert_equal ['title', 'content'], post.changed
+      else
+        assert_equal ['content', 'title'], post.changed
+      end
+
+      I18n.locale = :en
+      post.title  = nil
+      if Globalize.rails_5?
+        assert_equal ['title', 'content'], post.changed
+      else
+        assert_equal ['content', 'title'], post.changed
+      end
+
+      I18n.locale = :de
+      post.title  = nil
+      assert_equal ['content'], post.changed
+    end
+
+    it 'only resets attributes once when nothing has changed' do
+      post = Post.create(:title => 'title', :content => 'content')
+      post.send(:set_attribute_was, 'content', 'content')
+      post.content = 'content'
+      assert post.save
     end
   end
 end

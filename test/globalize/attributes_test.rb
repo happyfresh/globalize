@@ -1,5 +1,4 @@
 # encoding: utf-8
-
 require File.expand_path('../../test_helper', __FILE__)
 
 class AttributesTest < MiniTest::Spec
@@ -9,13 +8,20 @@ class AttributesTest < MiniTest::Spec
       assert Post.new.respond_to?(:title)
     end
 
+    it 'Post#columns does not include translated attributes' do
+      assert (Post.column_names.map(&:to_sym) & Post.translated_attribute_names.map(&:to_sym)).empty?
+    end
+
     it 'returns the correct translation for a saved record after locale switching' do
-      post = Post.create(:title => 'title')
-      post.update_attributes(:title => 'Titel', :locale => :de)
+      post = Post.create(:title => 'title', published: false)
+      post.update(:title => 'Titel', :locale => :de, published: true)
       post.reload
 
       assert_translated post, :en, :title, 'title'
       assert_translated post, :de, :title, 'Titel'
+
+      assert_translated post, :en, :published, false
+      assert_translated post, :de, :published, true
     end
 
     # TODO: maybe move this somewhere else?
@@ -116,9 +122,9 @@ class AttributesTest < MiniTest::Spec
 
     it 'does not change untranslated value' do
       post = Post.create(:title => 'title')
-      before = post.untranslated_attributes['title']
+      assert_nil post.untranslated_attributes['title']
       post.title = 'changed title'
-      assert_equal post.untranslated_attributes['title'], before
+      assert_nil post.untranslated_attributes['title']
     end
 
     it 'does not remove secondary unsaved translations' do
@@ -150,6 +156,60 @@ class AttributesTest < MiniTest::Spec
     end
   end
 
+  describe '#attributes=' do
+    it 'assigns translated attributes' do
+      post = Post.create(:title => 'title')
+      post.attributes = { :title => 'newtitle' }
+      assert_equal post.title, 'newtitle'
+      with_locale(:de) do
+        post.attributes = { :title => 'title in de' }
+        assert_equal post.title, 'title in de'
+      end
+      assert_equal post.title, 'newtitle'
+    end
+
+    it 'raises ArgumentError if attributes is blank' do
+      post = Post.create(:title => 'title')
+      assert_raises(ArgumentError) { post.attributes = nil }
+      assert_raises(ArgumentError) { post.attributes = [] }
+    end
+
+    it 'does not modify arguments passed in' do
+      post = Post.create(:title => 'title')
+      params = {'id' => 1, 'title' => 'newtitle', 'locale' => 'de'}
+      post.attributes = params
+      assert_equal params, {'id' => 1, 'title' => 'newtitle', 'locale' => 'de'}
+      with_locale(:de) { assert_equal post.title, 'newtitle' }
+    end
+  end
+
+  describe '#assign_attributes' do
+    it 'assigns translated attributes' do
+      post = Post.create(:title => 'title')
+      post.assign_attributes(:title => 'newtitle')
+      assert_equal post.title, 'newtitle'
+      with_locale(:de) do
+        post.assign_attributes(:title => 'title in de')
+        assert_equal post.title, 'title in de'
+      end
+      assert_equal post.title, 'newtitle'
+    end
+
+    it 'raises ArgumentError if attributes is blank' do
+      post = Post.create(:title => 'title')
+      assert_raises(ArgumentError) { post.assign_attributes(nil) }
+      assert_raises(ArgumentError) { post.assign_attributes([]) }
+    end
+
+    it 'does not modify arguments passed in' do
+      post = Post.create(:title => 'title')
+      params = {'id' => 1, 'title' => 'newtitle', 'locale' => 'de'}
+      post.assign_attributes(params)
+      assert_equal params, {'id' => 1, 'title' => 'newtitle', 'locale' => 'de'}
+      with_locale(:de) { assert_equal post.title, 'newtitle' }
+    end
+  end
+
   describe '#write_attribute' do
     it 'returns the value for non-translated attributes' do
       user = User.create(:name => 'Max Mustermann', :email => 'max@mustermann.de')
@@ -167,7 +227,7 @@ class AttributesTest < MiniTest::Spec
   describe '#<attr>_before_type_cast' do
     it 'works for translated attributes' do
       post = Post.create(:title => 'title')
-      post.update_attributes(:title => "Titel", :locale => :de)
+      post.update(:title => "Titel", :locale => :de)
 
       with_locale(:en) { assert_equal 'title', post.title_before_type_cast }
       with_locale(:de) { assert_equal 'Titel', post.title_before_type_cast }
@@ -189,9 +249,16 @@ class AttributesTest < MiniTest::Spec
   end
 
   describe 'serializable attribute' do
+    it 'keeps track of serialized attributes between classes' do
+      assert_equal UnserializedAttr.globalize_serialized_attributes, {}
+      assert_equal SerializedAttr.globalize_serialized_attributes[:meta].class, ActiveRecord::Coders::YAMLColumn
+      assert_equal ArraySerializedAttr.globalize_serialized_attributes[:meta].class, ActiveRecord::Coders::YAMLColumn
+      assert_equal JSONSerializedAttr.globalize_serialized_attributes[:meta], ActiveRecord::Coders::JSON
+    end
+
     it 'works with default marshalling, without data' do
       model = SerializedAttr.create
-      assert_equal nil, model.meta
+      assert_nil model.meta
     end
 
     it 'works with default marshalling, with data' do
@@ -200,9 +267,14 @@ class AttributesTest < MiniTest::Spec
       assert_equal data, model.meta
     end
 
-    it 'works with specified marshalling, without data, rails 3.1+' do
+    it 'works with Hash marshalling, without data' do
       model = SerializedHash.new
       assert_equal Hash.new, model.meta
+    end
+
+    it 'works with Array marshalling, without data' do
+      model = ArraySerializedAttr.new
+      assert_equal Array.new, model.meta
     end
   end
 
@@ -210,6 +282,66 @@ class AttributesTest < MiniTest::Spec
     it 'delegates to translations adapter' do
       post = Post.new
       assert_equal post.globalize.send(:column_for_attribute, :title), post.column_for_attribute(:title)
+    end
+  end
+
+  if Globalize::Test::Database.native_array_support?
+    describe 'columns with default array value' do
+      it 'returns the typecasted default value for arrays with empty array as default' do
+        product = Product.new
+        assert_equal [], product.array_values
+      end
+    end
+  end
+
+  describe 'translation table with null:false fields without default value ' do
+    DB_EXCEPTIONS = %w(
+      SQLite3::ConstraintException
+      PG::NotNullViolation
+      Mysql2::Error
+      ActiveRecord::JDBCError
+    )
+
+    it 'does not save a record with an empty required field' do
+      err = assert_raises ActiveRecord::StatementInvalid do
+        Artwork.create
+      end
+
+      assert_match(/#{DB_EXCEPTIONS.join('|')}/, err.message)
+    end
+
+    it 'saves a record with a filled required field' do
+      artwork = Artwork.new
+      artwork.title = "foo"
+      artwork.save!
+      artwork.reload
+
+      assert_equal 1, artwork.translations.length
+      assert_equal 'foo', artwork.title
+    end
+
+    it 'does not save a record with an empty required field using nested attributes' do
+      err = assert_raises ActiveRecord::StatementInvalid do
+        Artwork.create(:translations_attributes => {
+          "0" => { :locale => 'en', :title => 'title' },
+          "1" => { :locale => 'it' }
+        })
+      end
+
+      assert_match(/#{DB_EXCEPTIONS.join('|')}/, err.message)
+    end
+
+    it 'saves a record with a filled required field using nested attributes' do
+      artwork = Artwork.new(:translations_attributes => {
+        "0" => { :locale => 'en', :title => 'title' },
+        "1" => { :locale => 'it', :title => 'titolo' }
+      })
+      artwork.save!
+      artwork.reload
+
+      assert_equal 2, artwork.translations.length
+      assert_equal 'title', artwork.title
+      assert_equal 'titolo', artwork.title(:it)
     end
   end
 end

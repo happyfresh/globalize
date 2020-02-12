@@ -1,5 +1,34 @@
 # Globalize Changelog
 
+## Unreleased
+
+* Add `create_source_columns` option for migrations. [#715](https://github.com/globalize/globalize/pull/715) by [IlyasValiullov](https://github.com/IlyasValiullov)
+* Autosave is now configurable, but defaults to false. [#736](https://github.com/globalize/globalize/pull/736) by [James Hart](https://github.com/hjhart) 
+
+## 5.3.0 (2019-05-14)
+
+* Prevent 'SystemStackError: stack level too deep' error on attribute reset. [#722](https://github.com/globalize/globalize/pull/722) by [Reinier de Lange](https://github.com/moiristo)
+* Pass the `:limit` option for the FK column. [#721](https://github.com/globalize/globalize/pull/721) by [Denis Demchenko](https://github.com/lancedikson)
+* Add support for Rails 6.0. [#718](https://github.com/globalize/globalize/pull/718) by [Chrıs Seelus](https://github.com/cseelus)
+* FIX: stop registering the attr for Rails 4.2. [#711](https://github.com/globalize/globalize/pull/711) by [Adam Fernung](https://github.com/akfernun)
+
+## 5.2.0 (2018-11-02)
+
+* Add support for translated attributes to other QueryMethods and Calculations [#707](https://github.com/globalize/globalize/pull/707) by [kreintjes](https://github.com/kreintjes)
+* Fix `read_attribute` for Rails changes. [#709](https://github.com/globalize/globalize/pull/709) by [ota42y](https://github.com/ota42y) and [nabuchi](https://github.com/nabuchi)
+* Support array as an argument of order. [#675](https://github.com/globalize/globalize/pull/675) by [Maicol Bentancor](https://github.com/MaicolBen)
+* `_reset_attribute` bugfix. [#674](https://github.com/globalize/globalize/pull/674) by [ota42y](https://github.com/ota42y)
+* Add support for Rails 5.2 [#678](https://github.com/globalize/globalize/pull/678) by [kevin-jj](https://github.com/kevin-jj)
+* Fix: wrong number of arguments for ActiveRecord 'attribute' method [#671](https://github.com/globalize/globalize/pull/671) by [Evgeny Danilov](https://github.com/jmelkor)
+* Resolve deprecation warning: attribute is not an attribute known to Active Record. [#629](https://github.com/globalize/globalize/pull/629) by [Michael Rüffer](https://github.com/itschn)
+
+## 5.1.0 (2018-01-15)
+
+* Replaced `after_` callbacks with `before_` callbacks and set `autosave: true` by default. [#341](https://github.com/globalize/globalize/pull/341) by [Andrew Volozhanin](https://github.com/scarfacedeb)
+* Add [RequestStore](https://github.com/steveklabnik/request_store) to make Globalize thread-safe again [#420](https://github.com/globalize/globalize/pull/420)
+* Join the translations table when ordering by translated attributes (https://github.com/globalize/globalize/pull/447). (thanks [Thomas Maas](https://github.com/thomasmaas) & [Michal Cichra](https://github.com/mikz)).
+* Add `unique` to `with_translation` to prevent duplicates if fallbacks are defined and the queried locale is not the fallback language. [#489](https://github.com/globalize/globalize/pull/489) by [krisdigital](https://github.com/krisdigital)
+
 ## 5.0.1 (2015-02-15)
 
 * Don't touch table when model is loaded. [#412](https://github.com/globalize/globalize/pull/412)
@@ -74,7 +103,12 @@
 
 * Backport scope support on uniqueness validation from 4.0, drop support for ActiveRecord < 3.1, fixes [#324](https://github.com/globalize/globalize/issues/324).
 
+## 3.0.5 (2015-04-24)
+
+* Now working properly with the squeel library. (thanks [Toru Mori](https://github.com/torumori)). See [#437](https://github.com/globalize/globalize/pull/437)
+
 ## 3.0.4 (2014-01-08)
+
 * Extract all versioning-related code to separate [globalize-versioning](https://github.com/globalize/globalize-versioning) gem.
 
 ## 3.0.3 (2013-12-26)

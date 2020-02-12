@@ -1,6 +1,7 @@
 ![Globalize](http://globalize.github.io/globalize/images/globalize.png)
 
-[![Build Status](https://travis-ci.org/globalize/globalize.svg?branch=master)](https://travis-ci.org/globalize/globalize) [![Code Climate](https://codeclimate.com/github/globalize/globalize.svg)](https://codeclimate.com/github/globalize/globalize)
+[![Build Status](https://github.com/norman/friendly_id/workflows/CI/badge.svg)](https://github.com/globalize/globalize/actions) [![Code Climate](https://codeclimate.com/github/globalize/globalize.svg)](https://codeclimate.com/github/globalize/globalize)
+[![Open Source Helpers](https://www.codetriage.com/globalize/globalize/badges/users.svg)](https://www.codetriage.com/globalize/globalize)
 
 You can chat with us using Gitter:
 
@@ -8,6 +9,8 @@ You can chat with us using Gitter:
 
 Globalize builds on the [I18n API in Ruby on Rails](http://guides.rubyonrails.org/i18n.html)
 to add model translations to ActiveRecord models.
+
+In other words, a way to translate actual user-generated content, for example; a single blog post with multiple translations.
 
 ## Requirements
 
@@ -25,7 +28,16 @@ gem install globalize
 When using bundler put this in your Gemfile:
 
 ```ruby
-gem 'globalize', '~> 5.0.0'
+gem 'globalize', '~> 5.1.0'
+```
+
+Please help us by letting us know what works, and what doesn't, when using pre-release code.
+
+Put in your Gemfile
+
+```ruby
+gem 'globalize', git: 'https://github.com/globalize/globalize'
+gem 'activemodel-serializers-xml'
 ```
 
 To use the version of globalize for ActiveRecord 4.0 or 4.1, specify:
@@ -80,19 +92,24 @@ and `drop_translation_table!` inside the `change` instance method.
 
 ### Creating translation tables
 
-***Do not use the `change` method, use `up` and `down`!***
+Also note that before you can create a translation table, you have to define the translated attributes via `translates` in your model as shown above.
 
 ```ruby
 class CreatePosts < ActiveRecord::Migration
-  def up
+  def change
     create_table :posts do |t|
       t.timestamps
     end
-    Post.create_translation_table! :title => :string, :text => :text
-  end
-  def down
-    drop_table :posts
-    Post.drop_translation_table!
+
+    reversible do |dir|
+      dir.up do
+        Post.create_translation_table! :title => :string, :text => :text
+      end
+
+      dir.down do
+        Post.drop_translation_table!
+      end
+    end
   end
 end
 ```
@@ -101,16 +118,21 @@ Also, you can pass options for specific columns. Here’s an example:
 
 ```ruby
 class CreatePosts < ActiveRecord::Migration
-  def up
+  def change
     create_table :posts do |t|
       t.timestamps
     end
-    Post.create_translation_table! :title => :string,
-      :text => {:type => :text, :null => false, :default => 'abc'}
-  end
-  def down
-    drop_table :posts
-    Post.drop_translation_table!
+
+    reversible do |dir|
+      dir.up do
+        Post.create_translation_table! :title => :string,
+          :text => {:type => :text, :null => false, :default => 'abc'}
+      end
+
+      dir.down do
+        Post.drop_translation_table!
+      end
+    end
   end
 end
 ```
@@ -132,12 +154,38 @@ exists):
 
 ```ruby
 class TranslatePosts < ActiveRecord::Migration
+  def change
+    reversible do |dir|
+      dir.up do
+        Post.create_translation_table!({
+          :title => :string,
+          :text => :text
+        }, {
+          :migrate_data => true
+        })
+      end
+
+      dir.down do
+        Post.drop_translation_table! :migrate_data => true
+      end
+    end
+  end
+end
+```
+
+NOTE: Make sure you drop the translated columns from the parent table after all your data is safely migrated.
+
+To automatically remove the translated columns from the parent table after the data migration, please use option `remove_source_columns`.
+
+```ruby
+class TranslatePosts < ActiveRecord::Migration
   def self.up
     Post.create_translation_table!({
       :title => :string,
       :text => :text
     }, {
-      :migrate_data => true
+      :migrate_data => true,
+      :remove_source_columns => true
     })
   end
 
@@ -147,7 +195,19 @@ class TranslatePosts < ActiveRecord::Migration
 end
 ```
 
-NOTE: Make sure you drop the translated columns from the parent table after all your data is safely migrated.
+
+In order to use a specific locale for migrated data, you can use `I18n.with_locale`:
+
+```ruby
+    I18n.with_locale(:bo) do
+      Post.create_translation_table!({
+        :title => :string,
+        :text => :text
+      }, {
+        :migrate_data => true
+      })
+    end
+```
 
 ## Adding additional fields to the translation table
 
@@ -155,12 +215,16 @@ In order to add a new field to an existing translation table, you can use `add_t
 
 ```ruby
 class AddAuthorToPost < ActiveRecord::Migration
-  def up
-    Post.add_translation_fields! author: :text
-  end
+  def change
+    reversible do |dir|
+      dir.up do
+        Post.add_translation_fields! author: :text
+      end
 
-  def down
-    remove_column :post_translations, :author
+      dir.down do
+        remove_column :post_translations, :author
+      end
+    end
   end
 end
 ```
@@ -176,6 +240,24 @@ Because globalize uses the `:locale` key to specify the locale during
 mass-assignment, you should avoid having a `locale` attribute on the parent
 model.
 
+If you like your translated model to update if a translation changes, use the `touch: true` option together with `translates`:
+
+```ruby
+  translates :name, touch: true
+```
+
+## Known Issues
+
+If you're getting the `ActiveRecord::StatementInvalid: PG::NotNullViolation: ERROR: null value in column "column_name" violates not-null constraint` error, the only known way to deal with it as of now is to remove not-null constraint for the globalized columns:
+
+```ruby
+class RemoveNullConstraintsFromResourceTranslations < ActiveRecord::Migration
+  def change
+    change_column_null :resource_translations, :column_name, true
+  end
+end
+```
+
 ## Versioning with Globalize
 
 See the [globalize-versioning](https://github.com/globalize/globalize-versioning) gem.
@@ -189,6 +271,9 @@ You can enable them by adding the next line to `config/application.rb` (or only
 `config/environments/production.rb` if you only want them in production)
 
 ```ruby
+# For version 1.1.0 and above of the `i18n` gem:
+config.i18n.fallbacks = [I18n.default_locale]
+# Below version 1.1.0 of the `i18n` gem:
 config.i18n.fallbacks = true
 ```
 
@@ -327,23 +412,29 @@ def cache_key
 end
 ```
 
+## Thread-safety
+
+Globalize uses [request_store](https://github.com/steveklabnik/request_store) gem to clean up thread-global variable after every request.
+RequestStore includes a Railtie that will configure everything properly for Rails 3+ apps.
+
+If you're not using Rails, you may need to consult a RequestStore's [README](https://github.com/steveklabnik/request_store#no-rails-no-problem) to configure it.
+
+## Tutorials and articles
+* [Go Global with Rails and I18n](http://www.sitepoint.com/go-global-rails-i18n/) - introductory article about i18n in Rails (Ilya Bodrov)
+
 ## Official Globalize extensions
 
-* [globalize-accessors](https://github.com/globalize/globalize-accessors) - Replacement for [easy_globalize_3_accessors](https://github.com/paneq/easy_globalize3_accessors) compatible with Globalize 3.x and 4.x.
-* [globalize-versioning](https://github.com/globalize/globalize-versioning) - Versioning support for using Globalize with [`paper_trail`](https://github.com/airblade/paper_trail).
+* [globalize-accessors](https://github.com/globalize/globalize-accessors) - generator of accessor methods for models. *(e.g. title_en, title_cz)*
+* [globalize-versioning](https://github.com/globalize/globalize-versioning) - versioning support for using Globalize with [`paper_trail`](https://github.com/airblade/paper_trail). (compatible with Globalize 3.x and 4.x)
 
-## Alternative Solutions
+## Alternative solutions
 
-* [Veger's fork](http://github.com/veger/globalize2) - uses default AR schema for the default locale, delegates to the translations table for other locales only
-* [TranslatableColumns](http://github.com/iain/translatable_columns) - have multiple languages of the same attribute in a model (Iain Hecker)
-* [Traco](https://github.com/barsoom/traco) - A newer take on using multiple columns in the same model (Barsoom)
-* [localized_record](http://github.com/glennpow/localized_record) - allows records to have localized attributes without any modifications to the database (Glenn Powell)
-* [model_translations](http://github.com/janne/model_translations) - Minimal implementation of Globalize2 style model translations (Jan Andersson)
-* [hstore_translate](http://github.com/robworley/hstore_translate) - Rails I18n library for ActiveRecord model/data translation using PostgreSQL's hstore datatype (Rob Worley)
+* [Traco](https://github.com/barsoom/traco) - use multiple columns in the same model (Barsoom)
+* [Mobility](https://github.com/shioyama/mobility) - pluggable translation framework supporting many strategies, including translatable columns, translation tables and hstore/jsonb (Chris Salzberg)
+* [hstore_translate](https://github.com/cfabianski/hstore_translate) - use PostgreSQL's hstore datatype to store translations, instead of separate translation tables (Cédric Fabianski)
+* [json_translate](https://github.com/cfabianski/json_translate) - use PostgreSQL's json/jsonb datatype to store translations, instead of separate translation tables (Cédric Fabianski)
+* [Trasto](https://github.com/yabawock/trasto) - store translations directly in the model in a Postgres Hstore column
 
 ## Related solutions
 
-* [globalize2_versioning](http://github.com/joshmh/globalize2_versioning) - acts_as_versioned style versioning for globalize2 (Joshua Harvey)
-* [i18n_multi_locales_validations](http://github.com/ZenCocoon/i18n_multi_locales_validations) - multi-locales attributes validations to validates attributes from globalize2 translations models (Sébastien Grosjean)
-* [migrate_from_globalize1](http://gist.github.com/120867) - migrate model translations from Globalize1 to globalize2 (Tomasz Stachewicz)
-* [batch_translations](http://github.com/rilla/batch_translations) - allow saving multiple globalize2 translations in the same request (Jose Alvarez Rilla)
+* [friendly_id-globalize](https://github.com/norman/friendly_id-globalize) - lets you use Globalize to translate slugs (Norman Clarke)

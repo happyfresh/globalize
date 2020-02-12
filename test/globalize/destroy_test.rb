@@ -6,14 +6,14 @@ class DestroyTest < MiniTest::Spec
     before do
       @posts = [Post.create(:title => 'title'), Post.create(:title => 'title')]
       Globalize.with_locale(:ja) do
-        @posts[0].update_attributes(:title => 'タイトル1')
-        @posts[1].update_attributes(:title => 'タイトル2')
+        @posts[0].update(:title => 'タイトル1')
+        @posts[1].update(:title => 'タイトル2')
       end
     end
 
     describe 'with conditions including translated attributes' do
       it 'destroys translations' do
-        Post.destroy_all(:title => 'title')
+        Post.where(:title => 'title').destroy_all
         assert_equal 0, Post::Translation.count
       end
     end

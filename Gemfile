@@ -2,11 +2,19 @@ source 'https://rubygems.org'
 
 gemspec
 
-platforms :rbx do
-  gem 'rubysl', '~> 2.0'
+# Database Configuration
+if !ENV['CI'] || ENV['DB'] == 'sqlite3'
+  gem 'sqlite3', platforms: [:ruby, :rbx]
 end
 
-group :test do
-  gem 'pry'
-  gem 'pry-nav'
+if !ENV['CI'] || ENV['DB'] == 'mysql'
+  group :mysql do
+    gem 'mysql2', platforms: [:ruby, :rbx]
+  end
+end
+
+if !ENV['CI'] || %w(postgres postgresql).include?(ENV['DB'])
+  group :postgres, :postgresql do
+    gem 'pg', '< 1.0', platforms: [:ruby, :rbx]
+  end
 end

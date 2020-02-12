@@ -3,7 +3,7 @@ module Globalize
     class Adapter
       # The cache caches attributes that already were looked up for read access.
       # The stash keeps track of new or changed values that need to be saved.
-      attr_accessor :record, :stash, :translations
+      attr_accessor :record, :stash
       private :record=, :stash=
 
       delegate :translation_class, :to => :'record.class'
@@ -34,14 +34,16 @@ module Globalize
       end
 
       def save_translations!
-        stash.reject {|locale, attrs| attrs.empty?}.each do |locale, attrs|
+        stash.each do |locale, attrs|
+          next if attrs.empty?
+
           translation = record.translations_by_locale[locale] ||
                         record.translations.build(locale: locale.to_s)
-
           attrs.each do |name, value|
             value = value.val if value.is_a?(Arel::Nodes::Casted)
             translation[name] = value
           end
+
           ensure_foreign_key_for(translation)
           translation.save!
         end
@@ -57,7 +59,8 @@ module Globalize
 
       # Sometimes the translation is initialised before a foreign key can be set.
       def ensure_foreign_key_for(translation)
-        translation[translation.class.reflections["globalized_model"].foreign_key] = record.id
+        # AR >= 4.1 reflections renamed to _reflections
+        translation[translation.class.reflections.stringify_keys["globalized_model"].foreign_key] = record.id
       end
 
       def type_cast(name, value)
@@ -76,7 +79,11 @@ module Globalize
 
       def fetch_attribute(locale, name)
         translation = record.translation_for(locale, false)
-        return translation && translation.send(name)
+        if translation
+          translation.send(name)
+        else
+          record.class.translation_class.new.send(name)
+        end
       end
 
       def set_metadata(object, metadata)
@@ -95,6 +102,7 @@ module Globalize
       end
 
       delegate :fallbacks_for_empty_translations?, :to => :record, :prefix => false
+      prepend AdapterDirty
     end
   end
 end

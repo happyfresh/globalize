@@ -1,8 +1,6 @@
-ActiveRecord::Migration.verbose = false
-
 ActiveRecord::Schema.define do
   create_table :authors, :force => true do |t|
-    t.string     :name
+    t.string :name
   end
 
   create_table :articles, :force => true do |t|
@@ -29,7 +27,6 @@ ActiveRecord::Schema.define do
 
   create_table :posts, :force => true do |t|
     t.references :blog
-    t.boolean    :published
   end
 
   create_table :post_translations, :force => true do |t|
@@ -49,6 +46,11 @@ ActiveRecord::Schema.define do
     t.string     :locale
     t.references :product
     t.string     :name
+
+    if Globalize::Test::Database.native_array_support?
+      t.string :array_values, :array => true, :null => false, :default => []
+    end
+
     t.timestamps :null => false
   end
 
@@ -78,8 +80,18 @@ ActiveRecord::Schema.define do
     t.string :untranslated
   end
 
-  create_table :migrated_with_mega_ultra_super_long_model_name_with_more_then_sixty_characters, :force => true do |t|
+  create_table :migrated_bigints, :force => true, :id => false do |t|
+    # supposed to create a bigint value for id
+    t.integer :id, :limit => 8, :primary_key => true
     t.string :name
+    t.string :untranslated
+  end
+
+  if Globalize::Test::Database.long_table_name_support?
+    # Maximum length of a table name in MySQL and PostgreSQL are 64 characters
+    create_table :migrated_with_mega_ultra_super_long_model_name_with_more_then_sixty_characters, :force => true do |t|
+      t.string :name
+    end
   end
 
   create_table :two_attributes_migrateds, :force => true do |t|
@@ -137,7 +149,6 @@ ActiveRecord::Schema.define do
   end
 
   create_table :tasks, :force => true do |t|
-    t.string   :name
     t.datetime :created_at
   end
 
@@ -147,66 +158,50 @@ ActiveRecord::Schema.define do
     t.string     :name
   end
 
-  create_table 'UPPERCASE_TABLE_NAME', :force => true do |t|
-    t.string :name
+  create_table :UPPERCASE_TABLE_NAME, :force => true do |t|
   end
 
   create_table :UPPERCASE_TABLE_NAME_translations, :force => true do |t|
-    t.integer  'uppercase_table_name_id'
-    t.string     :locale
-    t.string     :name
+    t.integer :uppercase_table_name_id
+    t.string  :locale
+    t.string  :name
   end
 
   create_table :news, :force => true do |t|
-    t.string :title
   end
 
   create_table :news_translations, :force => true do |t|
-    t.integer  'news_id'
-    t.string     :locale
-    t.string     :title
+    t.integer :news_id
+    t.string  :locale
+    t.string  :title
   end
 
   create_table :pages, :force => true do |t|
   end
 
   create_table :page_translations, :force => true do |t|
-    t.integer    :page_id
-    t.string     :locale
-    t.string     :title
-    t.string     :body
+    t.integer :page_id
+    t.string  :locale
+    t.string  :title
+    t.string  :body
   end
 
   create_table :serialized_attrs, :force => true do |t|
-    t.text       :meta
   end
 
   create_table :serialized_attr_translations, :force => true do |t|
-    t.integer    :serialized_attr_id
-    t.string     :locale
-    t.text       :meta
+    t.integer :serialized_attr_id
+    t.string  :locale
+    t.text    :meta
   end
 
   create_table :serialized_hashes, :force => true do |t|
-    t.text       :meta
   end
 
   create_table :serialized_hash_translations, :force => true do |t|
-    t.integer    :serialized_hash_id
-    t.string     :locale
-    t.text       :meta
-  end
-
-  create_table :accounts, :force => true do |t|
-    t.string     :business_name,  :null => false, :default => ""
-    t.string     :notes, :null => false, :default => ""
-  end
-
-  create_table :account_translations, :force => true do |t|
-    t.references :account
-    t.string     :locale
-    t.string     :business_name
-    t.string     :notes
+    t.integer :serialized_hash_id
+    t.string  :locale
+    t.text    :meta
   end
 
   create_table :medias, :force => true do |t|
@@ -219,13 +214,12 @@ ActiveRecord::Schema.define do
   end
 
   create_table :model_with_custom_table_names, :force => true do |t|
-    t.string  :name
   end
 
   create_table :mctn_translations, :force => true do |t|
     t.references :model_with_custom_table_name
-    t.string :locale
-    t.string :name
+    t.string     :locale
+    t.string     :name
   end
 
   create_table :locales, :force => true do |t|
@@ -237,12 +231,40 @@ ActiveRecord::Schema.define do
     t.string  :name
   end
 
-  create_table "attachments" do |t|
+  create_table :attachments, :force => true do |t|
     t.references :post
-    t.string :file_type
+    t.string     :file_type
   end
 
-  create_table "foo_bar_bazs" do |t|
+  create_table :foo_bar_bazs, :force => true do |t|
     t.string :bumm
+  end
+
+  create_table :artworks, :force => true do |t|
+  end
+
+  create_table :artwork_translations, :force => true do |t|
+    t.string     :locale
+    t.references :artwork
+    t.string     :title, null: false
+  end
+
+  create_table :questions, :force => true do |t|
+  end
+
+  create_table :question_translations, :force => true do |t|
+    t.string     :locale
+    t.references :question
+    t.string     :title, null: false
+  end
+
+  create_table :bad_configurations, :force => true do |t|
+    t.string  :name
+  end
+
+  create_table :bad_configuration_translations, :force => true do |t|
+    t.integer :bad_configuration_id
+    t.string  :name
+    t.string  :locale
   end
 end

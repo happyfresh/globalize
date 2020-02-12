@@ -11,49 +11,63 @@ module Globalize
         super.merge(translated_attributes)
       end
 
-      def attributes=(attributes, *args)
-        with_given_locale(attributes) { super }
+      def attributes=(new_attributes, *options)
+        super unless new_attributes.respond_to?(:stringify_keys) && new_attributes.present?
+        attributes = new_attributes.stringify_keys
+        with_given_locale(attributes) { super(attributes.except("locale"), *options) }
       end
 
-      def assign_attributes(attributes, *args)
-        with_given_locale(attributes) { super }
-      end
+      if Globalize.rails_52?
 
-      def write_attribute(name, value, options = {})
-        return super(name, value) unless translated?(name)
-
-        options = {:locale => Globalize.locale}.merge(options)
-
-        # Dirty tracking, paraphrased from
-        # ActiveRecord::AttributeMethods::Dirty#write_attribute.
-        name_str = name.to_s
-        if attribute_changed?(name_str)
-          # If there's already a change, delete it if this undoes the change.
-          old = changed_attributes[name_str]
-          @changed_attributes.delete(name_str) if value == old
-        else
-          # If there's not a change yet, record it.
-          old = globalize.fetch(options[:locale], name)
-          old = old.dup if old.duplicable?
-          @changed_attributes[name_str] = old if value != old
+        # In Rails 5.2 we need to override *_assign_attributes* as it's called earlier
+        # in the stack (before *assign_attributes*)
+        # See https://github.com/rails/rails/blob/master/activerecord/lib/active_record/attribute_assignment.rb#L11
+        def _assign_attributes(new_attributes)
+          attributes = new_attributes.stringify_keys
+          with_given_locale(attributes) { super(attributes.except("locale")) }
         end
+
+      else
+
+        def assign_attributes(new_attributes, *options)
+          super unless new_attributes.respond_to?(:stringify_keys) && new_attributes.present?
+          attributes = new_attributes.stringify_keys
+          with_given_locale(attributes) { super(attributes.except("locale"), *options) }
+        end
+
+      end
+
+      def write_attribute(name, value, *args, &block)
+        return super(name, value, *args, &block) unless translated?(name)
+
+        options = {:locale => Globalize.locale}.merge(args.first || {})
 
         globalize.write(options[:locale], name, value)
       end
 
-      def read_attribute(name, options = {})
-        options = {:translated => true, :locale => nil}.merge(options)
-        return super(name) unless options[:translated]
-
-        if translated?(name)
-          if (value = globalize.fetch(options[:locale] || Globalize.locale, name))
-            value
-          else
-            super(name)
-          end
+      def [](attr_name)
+        if translated?(attr_name)
+          read_attribute(attr_name)
         else
-          super(name)
+          read_attribute(attr_name) { |n| missing_attribute(n, caller) }
         end
+      end
+
+      def read_attribute(attr_name, options = {}, &block)
+        name = if self.class.attribute_alias?(attr_name)
+                 self.class.attribute_alias(attr_name).to_s
+               else
+                 attr_name.to_s
+               end
+
+        name = self.class.primary_key if name == "id".freeze && self.class.primary_key
+
+        _read_attribute(name, options, &block)
+      end
+
+      def _read_attribute(attr_name, options = {}, &block)
+        translated_value = read_translated_attribute(attr_name, options, &block)
+        translated_value.nil? ? super(attr_name, &block) : translated_value
       end
 
       def attribute_names
@@ -83,8 +97,9 @@ module Globalize
 
           options[locale].each do |key, value|
             translation.send :"#{key}=", value
+            translation.globalized_model.send :"#{key}=", value
           end
-          translation.save
+          translation.save if persisted?
         end
         globalize.reset
       end
@@ -143,14 +158,17 @@ module Globalize
         Globalize.fallbacks(locale)
       end
 
-      def rollback
-        translation_caches[::Globalize.locale] = translation.previous_version
-      end
-
       def save(*)
-        Globalize.with_locale(translation.locale || I18n.default_locale) do
-          super
+        result = Globalize.with_locale(translation.locale || I18n.default_locale) do
+          without_fallbacks do
+            super
+          end
         end
+        if result
+          globalize.clear_dirty
+        end
+
+        result
       end
 
       def column_for_attribute name
@@ -161,6 +179,16 @@ module Globalize
 
       def cache_key
         [super, translation.cache_key].join("/")
+      end
+
+      def changed?
+        changed_attributes.present? || translations.any?(&:changed?)
+      end
+
+      # need to access instance variable directly since changed_attributes
+      # is frozen as of Rails 4.2
+      def original_changed_attributes
+        @changed_attributes
       end
 
     protected
@@ -184,14 +212,34 @@ module Globalize
         translation_caches.clear
       end
 
-      def with_given_locale(attributes, &block)
-        attributes.symbolize_keys! if attributes.respond_to?(:symbolize_keys!)
+      def with_given_locale(_attributes, &block)
+        attributes = _attributes.stringify_keys
 
-        if locale = attributes.try(:delete, :locale)
+        if locale = attributes.try(:delete, "locale")
           Globalize.with_locale(locale, &block)
         else
           yield
         end
+      end
+
+      def without_fallbacks
+        before = self.fallbacks_for_empty_translations
+        self.fallbacks_for_empty_translations = false
+        yield
+      ensure
+        self.fallbacks_for_empty_translations = before
+      end
+
+      # nil or value
+      def read_translated_attribute(name, options)
+        options = {:translated => true, :locale => nil}.merge(options)
+        return nil unless options[:translated]
+        return nil unless translated?(name)
+
+        value = globalize.fetch(options[:locale] || Globalize.locale, name)
+        return nil if value.nil?
+
+        block_given? ? yield(value) : value
       end
     end
   end

@@ -1,0 +1,21 @@
+mysql:
+  adapter: mysql2
+  host: 0.0.0.0
+  port: 3306
+  database: globalize_test
+  username: root
+  password: <%= ENV['MYSQL_PASSWORD'] %>
+  encoding: utf8
+
+postgresql:
+  adapter: postgresql
+  host: localhost
+  port: 5432
+  database: globalize_test
+  username: postgres
+  encoding: utf8
+
+sqlite3:
+  adapter: sqlite3
+  database: ":memory:"
+  encoding: utf8

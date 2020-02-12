@@ -4,9 +4,12 @@ vendor
 NOTES
 .DS_Store
 .bundle
-Gemfile.lock
+Gemfile*.lock
 .rvmrc
 *.sw*
 *.gem
 .rbx
 .ruby-version
+test/globalize_test.log
+gemfiles/*.lock
+tmp/
