@@ -41,7 +41,7 @@ module Globalize
         end
 
         begin
-          if ::ActiveRecord::VERSION::STRING > "5.0" && table_exists? &&translation_class.table_exists?
+          if ::ActiveRecord::VERSION::STRING > "5.0" && table_exists? && translation_class.table_exists?
             self.ignored_columns += translated_attribute_names.map(&:to_s)
             reset_column_information
           end
@@ -68,6 +68,7 @@ module Globalize
       def apply_globalize_options(options)
         options[:table_name] ||= "#{table_name.singularize}_translations"
         options[:foreign_key] ||= class_name.foreign_key
+        options[:autosave] ||= false
 
         class_attribute :translated_attribute_names, :translation_options, :fallbacks_for_empty_translations
         self.translated_attribute_names = []
@@ -99,11 +100,11 @@ module Globalize
                                 :foreign_key => options[:foreign_key],
                                 :dependent   => :destroy,
                                 :extend      => HasManyExtensions,
-                                :autosave    => true,
+                                :autosave    => options[:autosave],
                                 :inverse_of  => :globalized_model
 
-        before_create :save_translations!
-        before_update :save_translations!
+        after_create :save_translations!
+        after_update :save_translations!
       end
     end
 

@@ -4,7 +4,7 @@ class MigrationTest < MiniTest::Spec
   include Globalize::ActiveRecord::Exceptions
 
   before(:each) do
-    reset_schema(Migrated, TwoAttributesMigrated)
+    reset_schema(Migrated, TwoAttributesMigrated, MigratedBigint)
     if Globalize::Test::Database.long_table_name_support?
       reset_schema(MigratedWithMegaUltraSuperLongModelNameWithMoreThenSixtyCharacters)
     end
@@ -14,7 +14,7 @@ class MigrationTest < MiniTest::Spec
   end
 
   after(:each) do
-    reset_schema(Migrated, TwoAttributesMigrated)
+    reset_schema(Migrated, TwoAttributesMigrated, MigratedBigint)
     if Globalize::Test::Database.long_table_name_support?
       reset_schema(MigratedWithMegaUltraSuperLongModelNameWithMoreThenSixtyCharacters)
     end
@@ -118,6 +118,11 @@ class MigrationTest < MiniTest::Spec
         assert_equal 'Untranslated', untranslated.untranslated_attributes['name']
       end
     end
+
+    it 'creates a proper types for FK ids' do
+      MigratedBigint.create_translation_table!(:name => :text)
+      assert_migration_table({}, MigratedBigint)
+    end
   end
 
   describe 'add_translation_fields!' do
@@ -156,7 +161,10 @@ class MigrationTest < MiniTest::Spec
 
         assert_translated untranslated_record, :en, :name, 'Untranslated'
         assert_translated untranslated_record, :en, :body, 'Untranslated body'
-        assert_nil model.columns.detect { |c| c.name == "body" }
+
+        if Globalize.rails_5?
+          assert_nil model.columns.detect { |c| c.name == "body" }
+        end
       end
     end
   end
@@ -173,6 +181,16 @@ class MigrationTest < MiniTest::Spec
       assert !Migrated.translation_class.table_exists?
       assert !Migrated.translation_class.index_exists_on?(:migrated_id)
       assert !Migrated.translation_class.index_exists_on?(:locale)
+    end
+
+    it 'create source columns on drops the translations table' do
+      column_before = Migrated.columns.detect { |c| c.name == 'name' }
+
+      Migrated.create_translation_table!({:name => :string}, :remove_source_columns => true)
+      Migrated.drop_translation_table!(:create_source_columns => true)
+
+      column = Migrated.columns.detect { |c| c.name == 'name' }
+      assert_equal column_before.try(:type), column.try(:type)
     end
 
     it 'cannot be called on non-translated models' do
@@ -260,7 +278,7 @@ protected
     assert model.translation_class.index_exists_on?(index_field)
 
     assert_equal :string,   column_type(:locale, model)
-    assert_equal :integer,  column_type(index_field, model)
+    assert_equal model.type_for_attribute(model.primary_key), model.translation_class.type_for_attribute(index_field.to_s)
     assert_equal :datetime, column_type(:created_at, model)
     assert_equal :datetime, column_type(:updated_at, model)
 

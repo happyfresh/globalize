@@ -1,6 +1,7 @@
 ![Globalize](http://globalize.github.io/globalize/images/globalize.png)
 
-[![Build Status](https://travis-ci.org/globalize/globalize.svg?branch=master)](https://travis-ci.org/globalize/globalize) [![Code Climate](https://codeclimate.com/github/globalize/globalize.svg)](https://codeclimate.com/github/globalize/globalize)
+[![Build Status](https://github.com/norman/friendly_id/workflows/CI/badge.svg)](https://github.com/globalize/globalize/actions) [![Code Climate](https://codeclimate.com/github/globalize/globalize.svg)](https://codeclimate.com/github/globalize/globalize)
+[![Open Source Helpers](https://www.codetriage.com/globalize/globalize/badges/users.svg)](https://www.codetriage.com/globalize/globalize)
 
 You can chat with us using Gitter:
 
@@ -27,10 +28,10 @@ gem install globalize
 When using bundler put this in your Gemfile:
 
 ```ruby
-gem 'globalize', '~> 5.0.0'
+gem 'globalize', '~> 5.1.0'
 ```
 
-You have to use branch **master** to work with Rails 5.
+Please help us by letting us know what works, and what doesn't, when using pre-release code.
 
 Put in your Gemfile
 
@@ -270,6 +271,9 @@ You can enable them by adding the next line to `config/application.rb` (or only
 `config/environments/production.rb` if you only want them in production)
 
 ```ruby
+# For version 1.1.0 and above of the `i18n` gem:
+config.i18n.fallbacks = [I18n.default_locale]
+# Below version 1.1.0 of the `i18n` gem:
 config.i18n.fallbacks = true
 ```
 

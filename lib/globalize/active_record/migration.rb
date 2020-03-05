@@ -62,6 +62,7 @@ module Globalize
         end
 
         def drop_translation_table!(options = {})
+          add_missing_columns if options[:create_source_columns]
           move_data_to_model_table if options[:migrate_data]
           drop_translations_index
           drop_translation_table
@@ -78,7 +79,11 @@ module Globalize
 
         def create_translation_table
           connection.create_table(translations_table_name) do |t|
-            t.references table_name.sub(/^#{table_name_prefix}/, '').singularize, :null => false, :index => false, :type => column_type(model.primary_key).to_sym
+            t.references table_name.sub(/^#{table_name_prefix}/, '').singularize,
+                         :null => false,
+                         :index => false,
+                         :type => column_type(model.primary_key).try(:to_sym),
+                         :limit => model.columns.detect { |c| c.name == model.primary_key }.try(:limit)
             t.string :locale, :null => false
             t.timestamps :null => false
           end
@@ -144,8 +149,6 @@ module Globalize
         end
 
         def move_data_to_model_table
-          add_missing_columns
-
           # Find all of the translated attributes for all records in the model.
           all_translated_attributes = model.all.collect{|m| m.attributes}
           all_translated_attributes.each do |translated_record|
@@ -166,7 +169,7 @@ module Globalize
         end
 
         def column_type(name)
-          columns.detect { |c| c.name == name.to_s }.try(:type)
+          columns.detect { |c| c.name == name.to_s }.try(:type) || :string
         end
 
         def valid_field_name?(name)

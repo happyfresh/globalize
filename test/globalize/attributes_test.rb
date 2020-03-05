@@ -8,9 +8,13 @@ class AttributesTest < MiniTest::Spec
       assert Post.new.respond_to?(:title)
     end
 
+    it 'Post#columns does not include translated attributes' do
+      assert (Post.column_names.map(&:to_sym) & Post.translated_attribute_names.map(&:to_sym)).empty?
+    end
+
     it 'returns the correct translation for a saved record after locale switching' do
       post = Post.create(:title => 'title', published: false)
-      post.update_attributes(:title => 'Titel', :locale => :de, published: true)
+      post.update(:title => 'Titel', :locale => :de, published: true)
       post.reload
 
       assert_translated post, :en, :title, 'title'
@@ -118,9 +122,9 @@ class AttributesTest < MiniTest::Spec
 
     it 'does not change untranslated value' do
       post = Post.create(:title => 'title')
-      before = post.untranslated_attributes['title']
+      assert_nil post.untranslated_attributes['title']
       post.title = 'changed title'
-      assert_equal post.untranslated_attributes['title'], before
+      assert_nil post.untranslated_attributes['title']
     end
 
     it 'does not remove secondary unsaved translations' do
@@ -223,7 +227,7 @@ class AttributesTest < MiniTest::Spec
   describe '#<attr>_before_type_cast' do
     it 'works for translated attributes' do
       post = Post.create(:title => 'title')
-      post.update_attributes(:title => "Titel", :locale => :de)
+      post.update(:title => "Titel", :locale => :de)
 
       with_locale(:en) { assert_equal 'title', post.title_before_type_cast }
       with_locale(:de) { assert_equal 'Titel', post.title_before_type_cast }
@@ -254,7 +258,7 @@ class AttributesTest < MiniTest::Spec
 
     it 'works with default marshalling, without data' do
       model = SerializedAttr.create
-      assert_equal nil, model.meta
+      assert_nil model.meta
     end
 
     it 'works with default marshalling, with data' do
